@@ -146,6 +146,114 @@
           <div id="js-content" class="content-ll">
             
   
+    <article id="post-JavaScript运行原理" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/vae.github.io/2019/12/26/JavaScript%E8%BF%90%E8%A1%8C%E5%8E%9F%E7%90%86/">JavaScript运行原理</a>
+    </h1>
+  
+
+        
+        <a href="/vae.github.io/2019/12/26/JavaScript%E8%BF%90%E8%A1%8C%E5%8E%9F%E7%90%86/" class="archive-article-date">
+  	<time datetime="2019-12-26T08:13:45.594Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-12-26</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="js-运行原理解析"><a href="#js-运行原理解析" class="headerlink" title="js 运行原理解析"></a>js 运行原理解析</h1><p>关于JavaScript 如何工作的，由以下这几个概念</p>
+<ul>
+<li>JS Engline (JS引擎)</li>
+<li>Runtime（运行上下文）</li>
+<li>Call Stack (调用栈)</li>
+<li>Event Loop（事件循环）</li>
+<li>Callback (回调)</li>
+</ul>
+<h3 id="1-JS-Engine"><a href="#1-JS-Engine" class="headerlink" title="1. JS Engine"></a>1. JS Engine</h3><p>目前最流行的JS引擎非V8莫属了，Chrome浏览器和Node.js采用的引擎就是V8引擎。<br>目前最流行的JS引擎非V8莫属了，Chrome浏览器和Node.js采用的引擎就是V8引擎。引擎的结构可以简单由下图表示：<br><img src="https://user-gold-cdn.xitu.io/2018/1/16/160fcd26feb7b02b?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" alt="image"><br>就如JVM虚拟机一样，JS引擎中也有堆(Memory Heap)和栈(Call Stack)的概念。</p>
+<ul>
+<li>栈。用来存储方法调用的地方，以及基础数据类型(如var a = 1)也是存储在栈里面的，会随着方法调用结束而自动销毁掉(入栈–&gt;方法调用后–&gt;出栈)。</li>
+<li>堆。JS引擎中给对象分配的内存空间是放在堆中的。如var foo = {name: ‘foo’} 那么这个foo所指向的对象是存储在堆中的。</li>
+</ul>
+<p>此外，JS中存在闭包的概念，对于基本类型变量如果存在与闭包当中，那么也将存储在堆中。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">foo</span> (<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">var</span> x; <span class="comment">// local variables</span></span><br><span class="line">  <span class="keyword">var</span> y; <span class="comment">// captured variable, bar中引用了y</span></span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">function</span> <span class="title">bar</span> (<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="comment">// bar 中的context会capture变量y</span></span><br><span class="line">    use(y);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> bar;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如上述情况，变量y存在与bar()的闭包中，因此y是captured variable，是存储在堆中的。</p>
+<h3 id="2-RunTime"><a href="#2-RunTime" class="headerlink" title="2. RunTime"></a>2. RunTime</h3><p>JS在浏览器中可以调用浏览器提供的API，如window对象，DOM相关API等。这些接口并不是由V8引擎提供的，是存在与浏览器当中的。因此简单来说，对于这些相关的外部接口，可以在运行时供JS调用，以及JS的事件循环(Event Loop)和事件队列(Callback Queue)，把这些称为RunTime。有些地方也把JS所用到的core lib核心库也看作RunTime的一部分。<br><img src="https://user-gold-cdn.xitu.io/2018/1/16/160fcd26fb5bb968?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" alt="image"><br>同样，在Node.js中，可以把Node的各种库提供的API称为RunTime。所以可以这么理解，Chrome和Node.js都采用相同的V8引擎，但拥有不同的运行环境</p>
+<h3 id="3-Call-Stack"><a href="#3-Call-Stack" class="headerlink" title="3. Call Stack"></a>3. Call Stack</h3><p>JS被设计为单线程运行的，这是因为JS主要用来实现很多交互相关的操作，如DOM相关操作，如果是多线程会造成复杂的同步问题。因此JS自诞生以来就是单线程的，而且主线程都是用来进行界面相关的渲染操作<br><strong>为什么说是主线程，因为HTML5 提供了Web Worker，独立的一个后台JS，用来处理一些耗时数据操作。因为不会修改相关DOM及页面元素，因此不影响页面性能</strong><br>如果有阻塞产生会导致浏览器卡死。</p>
+<p>如果一个递归调用没有终止条件，是一个死循环的话，会导致调用栈内存不够而溢出，如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">function foo() &#123;</span><br><span class="line">    foo();</span><br><span class="line">&#125;</span><br><span class="line">foo();</span><br></pre></td></tr></table></figure>
+<p>例子中foo函数循环调用其本身，且没有终止条件，浏览器控制台输出调用栈达到最大调用次数。</p>
+<p><img src="https://user-gold-cdn.xitu.io/2018/1/16/160fcd26fae57ded?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" alt="image"></p>
+<p>JS线程如果遇到比较耗时操作，如读取文件，AJAX请求操作怎么办？这里JS用到了Callback回调函数来处理。</p>
+<p>对于Call Stack中的每个方法调用，都会形成它自己的一个执行上下文Execution Context</p>
+<h3 id="4-Event-Loop-amp-Callback"><a href="#4-Event-Loop-amp-Callback" class="headerlink" title="4.Event Loop &amp; Callback"></a>4.Event Loop &amp; Callback</h3><p>JS通过回调的方式，异步处理耗时的任务。一个简单的例子：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">var result &#x3D; ajax(&#39;...&#39;);</span><br><span class="line">console.log(result);</span><br></pre></td></tr></table></figure>
+<p>此时并不会得到result的值，result是undefined。这是因为ajax的调用是异步的，当前线程并不会等到ajax请求到结果后才执行console.log语句。而是调用ajax后请求的操作交给回调函数，自己是立刻返回。正确的写法应该是：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ajax(&#39;...&#39;, function(result) &#123;</span><br><span class="line">    console.log(result);</span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+<p>此时才能正确输出请求返回的结果。</p>
+<p>JS引擎其实并不提供异步的支持，异步支持主要依赖于运行环境(浏览器或Node.js)。</p>
+<h4 id="所以什么是Event-Loop"><a href="#所以什么是Event-Loop" class="headerlink" title="所以什么是Event Loop?"></a>所以什么是Event Loop?</h4><p>Event Loop只做一件事情，负责监听Call Stack和Callback Queue。当Call Stack里面的调用栈运行完变成空了，Event Loop就把Callback Queue里面的第一条事件(其实就是回调函数)放到调用栈中并执行它，后续不断循环执行这个操作。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">console.log(&#39;Hi&#39;);</span><br><span class="line">setTimeout(function cb1() &#123; </span><br><span class="line">    console.log(&#39;cb1&#39;);</span><br><span class="line">&#125;, 5000);</span><br><span class="line">console.log(&#39;Bye&#39;);</span><br></pre></td></tr></table></figure>
+<p><img src="https://user-gold-cdn.xitu.io/2018/1/16/160fcd26f8023a85?imageslim" alt="image"></p>
+<p><strong>setTimeout</strong>有个要注意的地方，如上述例子延迟5s执行，不是严格意义上的5s，正确来说是至少5s以后会执行。因为Web API会设定一个5s的定时器，时间到期后将回调函数加到队列中，此时该回调函数还不一定会马上运行，因为队列中可能还有之前加入的其他回调函数，而且还必须等到Call Stack空了之后才会从队列中取一个回调执行。</p>
+<p>所以常见的<strong>setTimeout(callback, 0)</strong> 的做法就是为了在常规的调用介绍后马上运行回调函数</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">console.log(&#39;Hi&#39;);</span><br><span class="line">setTimeout(function() &#123;</span><br><span class="line">    console.log(&#39;callback&#39;);</span><br><span class="line">&#125;, 0);</span><br><span class="line">console.log(&#39;Bye&#39;);</span><br><span class="line">&#x2F;&#x2F; 输出</span><br><span class="line">&#x2F;&#x2F; Hi</span><br><span class="line">&#x2F;&#x2F; Bye</span><br><span class="line">&#x2F;&#x2F; callback</span><br></pre></td></tr></table></figure>
+
+<p>在说一个容易犯错的栗子：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">for (var i &#x3D; 0; i &lt; 5; i++) &#123;</span><br><span class="line">    setTimeout(function() &#123;</span><br><span class="line">        console.log(i);</span><br><span class="line">    &#125;, 1000 * i);</span><br><span class="line">&#125;</span><br><span class="line">	</span><br><span class="line">&#x2F;&#x2F; 输出：5 5 5 5 5</span><br></pre></td></tr></table></figure>
+<p>上面这个例子并不是输出0，1，2，3，4，第一反应觉得应该是这样。但梳理了JS的时间循环后，应该很容易明白。</p>
+<p>调用栈先执行 ==for(var i = 0; i &lt; 5; i++) {…}== 方法，里面的定时器会到时间后会直接把回调函数放到事件队列中，等for循环执行完在依次取出放进调用栈。当for循环执行完时，i的值已经变成5，所以最后输出全都是5</p>
+<h4 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h4><ul>
+<li>JS引擎主要负责把JS代码转为机器能执行的机器码，而JS代码中调用的一些WEB API则由运行环境提供，这里代指浏览器。</li>
+<li>JS是单线程，每次都从调用栈取出代码进行掉用。如果当前代码非常耗时，则会阻塞当前线程浏览器导致浏览器卡顿。</li>
+<li>回调函数是通过加入到事件队列，等待Event Loop拿出并放到调用栈中进行调用。只有Event Loop监听到调用栈（Call Stack）为空时，才会从事件队列中从队头拿出回调函数放入调用栈里。</li>
+</ul>
+
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/vae.github.io/2019/12/26/JavaScript%E8%BF%90%E8%A1%8C%E5%8E%9F%E7%90%86/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
     <article id="post-nodejs 连接 MySQL(增删改查)" class="article article-type-post  article-index" itemscope itemprop="blogPost">
   <div class="article-inner">
     
@@ -281,81 +389,6 @@
       
         <p class="article-more-link">
           <a class="article-more-a" href="/vae.github.io/2019/12/20/linux%E5%AE%89%E8%A3%85nodejs/">展开全文 >></a>
-        </p>
-      
-
-      
-      <div class="clearfix"></div>
-    </div>
-  </div>
-</article>
-
-<aside class="wrap-side-operation">
-    <div class="mod-side-operation">
-        
-        <div class="jump-container" id="js-jump-container" style="display:none;">
-            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
-                <i class="icon-font icon-back"></i>
-            </a>
-            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
-                <i class="icon-font icon-plane jump-plane"></i>
-            </div>
-        </div>
-        
-        
-    </div>
-</aside>
-
-
-
-
-  
-    <article id="post-hello-world" class="article article-type-post  article-index" itemscope itemprop="blogPost">
-  <div class="article-inner">
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/vae.github.io/2019/12/19/hello-world/">Hello World</a>
-    </h1>
-  
-
-        
-        <a href="/vae.github.io/2019/12/19/hello-world/" class="archive-article-date">
-  	<time datetime="2019-12-19T12:52:31.970Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-12-19</time>
-</a>
-        
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <p>Welcome to <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/" target="_blank" rel="noopener">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html" target="_blank" rel="noopener">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="noopener">GitHub</a>.</p>
-<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">"My New Post"</span></span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/writing.html" target="_blank" rel="noopener">Writing</a></p>
-<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/server.html" target="_blank" rel="noopener">Server</a></p>
-<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/generating.html" target="_blank" rel="noopener">Generating</a></p>
-<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/one-command-deployment.html" target="_blank" rel="noopener">Deployment</a></p>
-
-      
-
-      
-    </div>
-    <div class="article-info article-info-index">
-      
-      
-      
-
-      
-        <p class="article-more-link">
-          <a class="article-more-a" href="/vae.github.io/2019/12/19/hello-world/">展开全文 >></a>
         </p>
       
 
