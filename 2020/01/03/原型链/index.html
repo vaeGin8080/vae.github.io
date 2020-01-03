@@ -6,19 +6,22 @@
   <meta name="renderer" content="webkit">
   <meta http-equiv="X-UA-Compatible" content="IE=edge" >
   <link rel="dns-prefetch" href="https://vaegin8080.github.io">
-  <title>call,apply和bind原生实现 | 晓风残月的博客</title>
+  <title>原型链(封装New) | 晓风残月的博客</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta name="description" content="1.call实现1234567891011121314151617181920212223&#x2F;* 实现call *&#x2F;Function.prototype.newCall &#x3D; function(context,...params) &amp;#123;    if(typeof context &#x3D;&#x3D;&#x3D; &#39;object&#39; || type">
+  <meta name="description" content="1.定义对象继承属性的一个链条 2.构造函数,实例与原型对象的关系 12var Person &#x3D; function (name) &amp;#123; this.name &#x3D; name; &amp;#125;&#x2F;&#x2F;person是构造函数var o3personTwo &#x3D; new Person(&#39;personTwo&#39;)&#x2F;&#x2F;perso">
 <meta property="og:type" content="article">
-<meta property="og:title" content="call,apply和bind原生实现">
-<meta property="og:url" content="https://vaegin8080.github.io/2020/01/03/call,apply%E5%92%8Cbind%E5%8E%9F%E7%94%9F%E5%AE%9E%E7%8E%B0/index.html">
+<meta property="og:title" content="原型链(封装New)">
+<meta property="og:url" content="https://vaegin8080.github.io/2020/01/03/%E5%8E%9F%E5%9E%8B%E9%93%BE/index.html">
 <meta property="og:site_name" content="晓风残月的博客">
-<meta property="og:description" content="1.call实现1234567891011121314151617181920212223&#x2F;* 实现call *&#x2F;Function.prototype.newCall &#x3D; function(context,...params) &amp;#123;    if(typeof context &#x3D;&#x3D;&#x3D; &#39;object&#39; || type">
+<meta property="og:description" content="1.定义对象继承属性的一个链条 2.构造函数,实例与原型对象的关系 12var Person &#x3D; function (name) &amp;#123; this.name &#x3D; name; &amp;#125;&#x2F;&#x2F;person是构造函数var o3personTwo &#x3D; new Person(&#39;personTwo&#39;)&#x2F;&#x2F;perso">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2020-01-03T02:58:40.343Z">
-<meta property="article:modified_time" content="2020-01-03T03:37:55.779Z">
+<meta property="og:image" content="https://user-gold-cdn.xitu.io/2019/10/22/16df35ccb827f1e8?imageView2/0/w/1280/h/960/format/webp/ignore-error/1">
+<meta property="og:image" content="https://user-gold-cdn.xitu.io/2019/10/22/16df35d0ab151801?imageView2/0/w/1280/h/960/format/webp/ignore-error/1">
+<meta property="article:published_time" content="2020-01-03T03:46:37.372Z">
+<meta property="article:modified_time" content="2020-01-03T03:47:04.620Z">
 <meta property="article:author" content="晓风残月">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://user-gold-cdn.xitu.io/2019/10/22/16df35ccb827f1e8?imageView2/0/w/1280/h/960/format/webp/ignore-error/1">
   
     <link rel="alternative" href="/atom.xml" title="晓风残月的博客" type="application/atom+xml">
   
@@ -148,36 +151,45 @@
             <canvas data-colors="#eaeaea" data-sectionHeight="100" data-contentId="js-content" id="myCanvas1" class="anm-canvas"></canvas>
           </div>
           <div id="js-content" class="content-ll">
-            <article id="post-call,apply和bind原生实现" class="article article-type-post " itemscope itemprop="blogPost">
+            <article id="post-原型链" class="article article-type-post " itemscope itemprop="blogPost">
   <div class="article-inner">
     
       <header class="article-header">
         
   
     <h1 class="article-title" itemprop="name">
-      call,apply和bind原生实现
+      原型链(封装New)
     </h1>
   
 
         
-        <a href="/vae.github.io/2020/01/03/call,apply%E5%92%8Cbind%E5%8E%9F%E7%94%9F%E5%AE%9E%E7%8E%B0/" class="archive-article-date">
-  	<time datetime="2020-01-03T02:58:40.343Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-01-03</time>
+        <a href="/vae.github.io/2020/01/03/%E5%8E%9F%E5%9E%8B%E9%93%BE/" class="archive-article-date">
+  	<time datetime="2020-01-03T03:46:37.372Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-01-03</time>
 </a>
         
       </header>
     
     <div class="article-entry" itemprop="articleBody">
       
-        <h3 id="1-call实现"><a href="#1-call实现" class="headerlink" title="1.call实现"></a>1.call实现</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;* 实现call *&#x2F;</span><br><span class="line"></span><br><span class="line">Function.prototype.newCall &#x3D; function(context,...params) &#123;</span><br><span class="line">    if(typeof context &#x3D;&#x3D;&#x3D; &#39;object&#39; || typeof context &#x3D;&#x3D;&#x3D; &#39;function&#39;) &#123;</span><br><span class="line">        context &#x3D; context || window</span><br><span class="line">    &#125;else &#123;</span><br><span class="line">        context &#x3D; Object.create(null)</span><br><span class="line">    &#x2F;&#x2F; this,此时拿到的是被调用的function</span><br><span class="line">    &#x2F;&#x2F; Symbo是es6新增属性，凡是属性名属于 Symbol 类型，就都是独一无二的避免属性名冲突</span><br><span class="line">    let fn &#x3D; Symbol()</span><br><span class="line">    context[fn] &#x3D; this</span><br><span class="line">    const res &#x3D; context[fn](...params)</span><br><span class="line">    delete context.fn;</span><br><span class="line">    return res</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">let person &#x3D; &#123;</span><br><span class="line">    name: &quot;晓风残月&quot;</span><br><span class="line">  &#125;;</span><br><span class="line">function sayHi(age, sex) &#123;</span><br><span class="line">    console.log(this.name, age, sex);</span><br><span class="line">&#125;</span><br><span class="line">sayHi.newCall (person,25,&#39;男&#39;) &#x2F;&#x2F;晓风残月 25 男</span><br></pre></td></tr></table></figure>
+        <h3 id="1-定义"><a href="#1-定义" class="headerlink" title="1.定义"></a>1.定义</h3><p>对象继承属性的一个链条</p>
+<h3 id="2-构造函数-实例与原型对象的关系"><a href="#2-构造函数-实例与原型对象的关系" class="headerlink" title="2.构造函数,实例与原型对象的关系"></a>2.构造函数,实例与原型对象的关系</h3><p><img src="https://user-gold-cdn.xitu.io/2019/10/22/16df35ccb827f1e8?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" alt="iamge"></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">var Person &#x3D; function (name) &#123; this.name &#x3D; name; &#125;&#x2F;&#x2F;person是构造函数</span><br><span class="line">var o3personTwo &#x3D; new Person(&#39;personTwo&#39;)&#x2F;&#x2F;personTwo是实例</span><br></pre></td></tr></table></figure>
+<p><img src="https://user-gold-cdn.xitu.io/2019/10/22/16df35d0ab151801?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" alt="image"><br>原型对象都有一个默认的constructor属性指向构造函数</p>
+<h3 id="3-创建实例的方法"><a href="#3-创建实例的方法" class="headerlink" title="3.创建实例的方法"></a>3.创建实例的方法</h3><p>1.字面量</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">let obj&#x3D;&#123;&#39;name&#39;:&#39;张三&#39;&#125;</span><br></pre></td></tr></table></figure>
+<p>2.Object构造函数创建</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">let Obj&#x3D;new Object()</span><br><span class="line">Obj.name&#x3D;&#39;张三&#39;</span><br></pre></td></tr></table></figure>
+<p>3.使用工厂模式创建对象</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">function createPerson(name) &#123;</span><br><span class="line">    var o &#x3D; new Person()</span><br><span class="line">    o.name &#x3D; name</span><br><span class="line">    return o</span><br><span class="line">&#125;</span><br><span class="line">var proson1 &#x3D; createPerson(&#39;张三&#39;)</span><br></pre></td></tr></table></figure>
+<p>4.使用构造函数创建对象</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">function Person(name)&#123;</span><br><span class="line"> this.name &#x3D; name;</span><br><span class="line">&#125;</span><br><span class="line">var person1 &#x3D; new Person(&#39;张三&#39;);</span><br></pre></td></tr></table></figure>
+<h3 id="4-new运算符"><a href="#4-new运算符" class="headerlink" title="4.new运算符"></a>4.new运算符</h3><ol>
+<li>创了一个新对象;</li>
+<li>this指向构造函数;</li>
+<li>构造函数有返回,会替换new出来的对象,如果没有就是new出来的对象</li>
+<li>手动封装一个new运算符<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">function new2(func) &#123;</span><br><span class="line">  var obj &#x3D; &#123;&#125;; &#x2F;&#x2F;创建对象</span><br><span class="line">  console.log(func.prototype)</span><br><span class="line">  let arg &#x3D; Array.prototype.slice.call(arguments,1);</span><br><span class="line">  obj.__proto__ &#x3D; func.prototype</span><br><span class="line">  func.apply(obj,arg);</span><br><span class="line">  return obj</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">var Person &#x3D; function(name) &#123;</span><br><span class="line">  this.name &#x3D; name;</span><br><span class="line">&#125;;</span><br><span class="line">var obj &#x3D; new2(Person,1);</span><br><span class="line">console.log(obj); &#x2F;&#x2F; Person &#123; name: 1 &#125;</span><br></pre></td></tr></table></figure></li>
+</ol>
 
-<h3 id="2-实现apply"><a href="#2-实现apply" class="headerlink" title="2.实现apply"></a>2.实现apply</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;* 实现apply *&#x2F;</span><br><span class="line"></span><br><span class="line">Function.prototype.newApply &#x3D; function(context,params) &#123;</span><br><span class="line">    if(typeof context &#x3D;&#x3D;&#x3D; &#39;object&#39; || typeof context &#x3D;&#x3D;&#x3D; &#39;function&#39;) &#123;</span><br><span class="line">        context &#x3D; context || window</span><br><span class="line">    &#125;else &#123;</span><br><span class="line">        context &#x3D; Object.create(null)</span><br><span class="line">    &#125;</span><br><span class="line">    let fn &#x3D; Symbol()</span><br><span class="line">    context[fn] &#x3D; this</span><br><span class="line">    const res &#x3D; context[fn](...params)</span><br><span class="line">    delete context.fn;</span><br><span class="line">    return res</span><br><span class="line">&#125;</span><br><span class="line">let person &#x3D; &#123;</span><br><span class="line">    name: &quot;晓风残月&quot;</span><br><span class="line">  &#125;;</span><br><span class="line">function sayHi(age, sex) &#123;</span><br><span class="line">    console.log(this.name, age, sex);</span><br><span class="line">&#125;</span><br><span class="line">sayHi.newApply (person,[ 25, &#39;男&#39;]) &#x2F;&#x2F;晓风残月 25 男</span><br></pre></td></tr></table></figure>
-<p>call 和 apply 封装对比:其实核心代码是一样的,只不过 call 需要对第二个形参解构</p>
-<h3 id="3-实现bind"><a href="#3-实现bind" class="headerlink" title="3.实现bind"></a>3.实现bind</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;* 实现bind *&#x2F;</span><br><span class="line"></span><br><span class="line">Function.prototype.newBind &#x3D; function(context,...params) &#123;</span><br><span class="line">  let me &#x3D; this</span><br><span class="line">  return function(...otherParams) &#123;</span><br><span class="line">      return me.call(context,...params,...otherParams);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">let person &#x3D; &#123;</span><br><span class="line">  name: &#39;晓风残月&#39;</span><br><span class="line">&#125;</span><br><span class="line">function sayHi(age,sex) &#123;</span><br><span class="line">  console.log(this.name, age, sex);</span><br><span class="line">&#125;</span><br><span class="line">let personSayHi &#x3D; sayHi.bind(person, 25)</span><br><span class="line">personSayHi(&#39;男&#39;)</span><br></pre></td></tr></table></figure>
-<p>bind代码重新绑定了func内部的this指向,返回一个函数,不会调用方法</p>
-<h3 id="三者异同"><a href="#三者异同" class="headerlink" title="三者异同"></a>三者异同</h3><p>都是改变this指向,都可接收参数 异:bind和call是接收单个参数,apply是接收数组</p>
-<h3 id="Symbo类型"><a href="#Symbo类型" class="headerlink" title="Symbo类型"></a>Symbo类型</h3><p>　ES5中包含5种原始类型：字符串、数字、布尔值、null和undefined。ES6引入了第6种原始类型——Symbol<br>　<br>　ES5的对象属性名都是字符串，很容易造成属性名冲突。比如，使用了一个他人提供的对象，想为这个对象添加新的方法，新方法的名字就有可能与现有方法产生冲突。如果有一种机制，保证每个属性的名字都是独一无二的，这样就从根本上防止了属性名冲突。这就是ES6引入Symbol的原因，本文将详细介绍ES6中的Symbol类型
-　</p>
-<h4 id="创建"><a href="#创建" class="headerlink" title="创建"></a>创建</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">let firstName &#x3D; Symbol();</span><br><span class="line">let person &#x3D; &#123;&#125;;</span><br><span class="line">person[firstName] &#x3D; &quot;huochai&quot;;</span><br><span class="line">console.log(person[firstName]); &#x2F;&#x2F; &quot;huochai&quot;</span><br></pre></td></tr></table></figure>
       
 
       
@@ -256,7 +268,7 @@
     <a class="close js-modal-close" href="javascript:;"><i class="icon icon-close"></i></a>
     <p>扫一扫，分享到微信</p>
     <div class="wx-qrcode">
-      <img src="//pan.baidu.com/share/qrcode?url=https://vaegin8080.github.io/2020/01/03/call,apply%E5%92%8Cbind%E5%8E%9F%E7%94%9F%E5%AE%9E%E7%8E%B0/" alt="微信分享二维码">
+      <img src="//pan.baidu.com/share/qrcode?url=https://vaegin8080.github.io/2020/01/03/%E5%8E%9F%E5%9E%8B%E9%93%BE/" alt="微信分享二维码">
     </div>
 </div>
 
@@ -270,18 +282,18 @@
   
 <nav id="article-nav">
   
-    <a href="/vae.github.io/2020/01/03/%E7%BB%A7%E6%89%BF%E7%9A%84%E6%96%B9%E5%BC%8F/" id="article-nav-newer" class="article-nav-link-wrap">
+    <a href="/vae.github.io/2020/01/03/%E4%BA%8B%E4%BB%B6%E5%BE%AA%E7%8E%AFEventLoop%E6%9C%BA%E5%88%B6/" id="article-nav-newer" class="article-nav-link-wrap">
       <i class="icon-circle-left"></i>
       <div class="article-nav-title">
         
-          继承的方式
+          事件循环EventLoop机制
         
       </div>
     </a>
   
   
-    <a href="/vae.github.io/2020/01/03/%E9%98%B2%E6%8A%96%E5%92%8C%E8%8A%82%E6%B5%81/" id="article-nav-older" class="article-nav-link-wrap">
-      <div class="article-nav-title">防抖和节流</div>
+    <a href="/vae.github.io/2020/01/03/%E7%BB%A7%E6%89%BF%E7%9A%84%E6%96%B9%E5%BC%8F/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">继承的方式</div>
       <i class="icon-circle-right"></i>
     </a>
   

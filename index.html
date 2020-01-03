@@ -146,6 +146,269 @@
           <div id="js-content" class="content-ll">
             
   
+    <article id="post-事件循环EventLoop机制" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/vae.github.io/2020/01/03/%E4%BA%8B%E4%BB%B6%E5%BE%AA%E7%8E%AFEventLoop%E6%9C%BA%E5%88%B6/">事件循环EventLoop机制</a>
+    </h1>
+  
+
+        
+        <a href="/vae.github.io/2020/01/03/%E4%BA%8B%E4%BB%B6%E5%BE%AA%E7%8E%AFEventLoop%E6%9C%BA%E5%88%B6/" class="archive-article-date">
+  	<time datetime="2020-01-03T03:47:37.562Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-01-03</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h3 id="1-宏任务与微任务"><a href="#1-宏任务与微任务" class="headerlink" title="1. 宏任务与微任务"></a>1. 宏任务与微任务</h3><p>依据我们多年编写 ajax 的经验：js 应该是按照语句先后顺序执行，在出现异步时，则发起异步请求后，接着往下执行，待异步结果返回后再接着执行。但他内部是怎样管理这些执行任务的呢？</p>
+<p>在 js 中，任务分为宏任务(macrotask)和微任务(microtask)，这两个任务分别维护一个队列，均采用先进先出的策略进行执行！同步执行的任务都在宏任务上执行。</p>
+<p>宏任务主要有：script(整体代码)、setTimeout、setInterval、I/O、UI 交互事件、postMessage、MessageChannel、setImmediate(Node.js 环境)。</p>
+<p>微任务主要有：Promise.then、 MutationObserver、 process.nextTick(Node.js 环境)。</p>
+<p>具体的操作步骤如下：</p>
+<ol>
+<li>从宏任务的头部取出一个任务执行；</li>
+<li>执行过程中若遇到微任务则将其添加到微任务的队列中；</li>
+<li>宏任务执行完毕后，微任务的队列中是否存在任务，若存在，则挨个儿出去执行，直到执行完毕；</li>
+<li>GUI 渲染；</li>
+<li>回到步骤 1，直到宏任务执行完毕；</li>
+</ol>
+<p>这 4 步构成了一个事件的循环检测机制，即我们所称的eventloop。</p>
+<p>一个例子</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">console.log(1);</span><br><span class="line">setTimeout(function() &#123;</span><br><span class="line">    console.log(2);</span><br><span class="line">&#125;, 0);</span><br><span class="line">new Promise(function(resolve) &#123;</span><br><span class="line">    console.log(3);</span><br><span class="line">    resolve(Date.now());</span><br><span class="line">&#125;).then(function() &#123;</span><br><span class="line">    console.log(4);</span><br><span class="line">&#125;);</span><br><span class="line">console.log(5);</span><br><span class="line">setTimeout(function() &#123;</span><br><span class="line">    new Promise(function(resolve) &#123;</span><br><span class="line">        console.log(6);</span><br><span class="line">        resolve(Date.now());</span><br><span class="line">    &#125;).then(function() &#123;</span><br><span class="line">        console.log(7);</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;, 0);</span><br></pre></td></tr></table></figure>
+<ol>
+<li>执行 log(1)，输出 1；</li>
+<li>遇到 setTimeout，将回调的代码 log(2)添加到宏任务中等待执行；</li>
+<li>执行 console.log(3)，将 then 中的 log(4)添加到微任务中；</li>
+<li>执行 log(5)，输出 5；</li>
+<li>遇到 setTimeout，将回调的代码 log(6, 7)添加到宏任务中；</li>
+<li>宏任务的一个任务执行完毕，查看微任务队列中是否存在任务，存在一个微任务 log(4)（在步骤 3 中添加的），执行输出 4；</li>
+<li>取出下一个宏任务 log(2)执行，输出 2；</li>
+<li>宏任务的一个任务执行完毕，查看微任务队列中是否存在任务，不存在；</li>
+<li>取出下一个宏任务执行，执行 log(6)，将 then 中的 log(7)添加到微任务中；</li>
+<li>宏任务执行完毕，存在一个微任务 log(7)（在步骤 9 中添加的），执行输出 7；</li>
+</ol>
+<p>因此，最终的输出顺序为：1, 3, 5, 4, 2, 6, 7;</p>
+<p>我们在Promise.then实现一个稍微耗时的操作，这个步骤看起来会更加地明显：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">console.log(1);</span><br><span class="line">var start &#x3D; Date.now();</span><br><span class="line">setTimeout(function() &#123;</span><br><span class="line">    console.log(2);</span><br><span class="line">&#125;, 0);</span><br><span class="line">setTimeout(function() &#123;</span><br><span class="line">    console.log(4, Date.now() - start);</span><br><span class="line">&#125;, 400);</span><br><span class="line">Promise.resolve().then(function() &#123;</span><br><span class="line">    var sum &#x3D; function(a, b) &#123;</span><br><span class="line">        return Number(a) + Number(b);</span><br><span class="line">    &#125;</span><br><span class="line">    var res &#x3D; [];</span><br><span class="line">    for(var i&#x3D;0; i&lt;5000000; i++) &#123;</span><br><span class="line">        var a &#x3D; Math.floor(Math.random()*100);</span><br><span class="line">        var b &#x3D; Math.floor(Math.random()*200);</span><br><span class="line">        res.push(sum(a, b));</span><br><span class="line">    &#125;</span><br><span class="line">    res &#x3D; res.sort();</span><br><span class="line">    console.log(3);</span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+<p>Promise.then中，先生成一个500万随机数的数组，然后对这个数组进行排序。运行这段代码可以发现：马上会输出1，稍等一会儿才会输出3，然后再输出2。不论等待多长时间输出3，2一定会在3的后面输出。这也就印证了eventloop中的第3步操作，必须等所有的微任务执行完毕后，才开始下一个宏任务。</p>
+<p>本来要设定的是400ms后输出，但因为之前的任务耗时严重，导致之后的任务只能延迟往后排。也能说明，setTimeout和setInterval这种操作的延时是不准确的，这两个方法只能大概将任务400ms之后的宏任务中，但具体的执行时间，还是要看线程是否空闲。 <strong>若前一个任务中有耗时的操作，或者有无限的微任务加入进来时，则会阻塞下一个任务的执行**</strong></p>
+<h3 id="2-async-await"><a href="#2-async-await" class="headerlink" title="2. async-await"></a>2. async-await</h3><p>从上面的代码中也能看到 Promise.then 中的代码是属于微服务，那么 async-await 的代码怎么执行呢？比如下面的代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">function A() &#123;</span><br><span class="line">    return Promise.resolve(Date.now());</span><br><span class="line">&#125;</span><br><span class="line">async function B() &#123;</span><br><span class="line">    console.log(Math.random());</span><br><span class="line">    let now &#x3D; await A();</span><br><span class="line">    console.log(now);</span><br><span class="line">&#125;</span><br><span class="line">console.log(1);</span><br><span class="line">B();</span><br><span class="line">console.log(2);</span><br></pre></td></tr></table></figure>
+<p>其实，async-await 只是 Promise+generator 的一种语法糖而已。上面的代码我们改写为这样，可以更加清晰一点：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">function B() &#123;</span><br><span class="line">    console.log(Math.random());</span><br><span class="line">    A().then(function(now) &#123;</span><br><span class="line">        console.log(now);</span><br><span class="line">    &#125;)</span><br><span class="line">&#125;</span><br><span class="line">console.log(1);</span><br><span class="line">B();</span><br><span class="line">console.log(2);</span><br></pre></td></tr></table></figure>
+<p>这样我们就能明白输出的先后顺序了： 1, 0.4793526730678652(随机数), 2, 1557830834679(时间戳);</p>
+<h3 id="3-requestAnimationFrame"><a href="#3-requestAnimationFrame" class="headerlink" title="3. requestAnimationFrame"></a>3. requestAnimationFrame</h3><p>requestAnimationFrame也属于异步执行的方法，但该方法既不属于宏任务，也不属于微任务。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">window.requestAnimationFrame() 告诉浏览器——你希望执行一个动画，并且要求浏览器在下次重绘之前调用指定的回调函数更新动画。该方法需要传入一个回调函数作为参数，该回调函数会在浏览器下一次重绘之前执行</span><br></pre></td></tr></table></figure>
+<p>requestAnimationFrame是GUI渲染之前执行，但在微服务之后，不过requestAnimationFrame不一定会在当前帧必须执行，由浏览器根据当前的策略自行决定在哪一帧执行。</p>
+<h3 id="4-总结"><a href="#4-总结" class="headerlink" title="4. 总结"></a>4. 总结</h3><p>我们要记住最重要的两点：js是单线程和eventloop的循环机制。</p>
+
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/vae.github.io/2020/01/03/%E4%BA%8B%E4%BB%B6%E5%BE%AA%E7%8E%AFEventLoop%E6%9C%BA%E5%88%B6/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-原型链" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/vae.github.io/2020/01/03/%E5%8E%9F%E5%9E%8B%E9%93%BE/">原型链(封装New)</a>
+    </h1>
+  
+
+        
+        <a href="/vae.github.io/2020/01/03/%E5%8E%9F%E5%9E%8B%E9%93%BE/" class="archive-article-date">
+  	<time datetime="2020-01-03T03:46:37.372Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-01-03</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h3 id="1-定义"><a href="#1-定义" class="headerlink" title="1.定义"></a>1.定义</h3><p>对象继承属性的一个链条</p>
+<h3 id="2-构造函数-实例与原型对象的关系"><a href="#2-构造函数-实例与原型对象的关系" class="headerlink" title="2.构造函数,实例与原型对象的关系"></a>2.构造函数,实例与原型对象的关系</h3><p><img src="https://user-gold-cdn.xitu.io/2019/10/22/16df35ccb827f1e8?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" alt="iamge"></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">var Person &#x3D; function (name) &#123; this.name &#x3D; name; &#125;&#x2F;&#x2F;person是构造函数</span><br><span class="line">var o3personTwo &#x3D; new Person(&#39;personTwo&#39;)&#x2F;&#x2F;personTwo是实例</span><br></pre></td></tr></table></figure>
+<p><img src="https://user-gold-cdn.xitu.io/2019/10/22/16df35d0ab151801?imageView2/0/w/1280/h/960/format/webp/ignore-error/1" alt="image"><br>原型对象都有一个默认的constructor属性指向构造函数</p>
+<h3 id="3-创建实例的方法"><a href="#3-创建实例的方法" class="headerlink" title="3.创建实例的方法"></a>3.创建实例的方法</h3><p>1.字面量</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">let obj&#x3D;&#123;&#39;name&#39;:&#39;张三&#39;&#125;</span><br></pre></td></tr></table></figure>
+<p>2.Object构造函数创建</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">let Obj&#x3D;new Object()</span><br><span class="line">Obj.name&#x3D;&#39;张三&#39;</span><br></pre></td></tr></table></figure>
+<p>3.使用工厂模式创建对象</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">function createPerson(name) &#123;</span><br><span class="line">    var o &#x3D; new Person()</span><br><span class="line">    o.name &#x3D; name</span><br><span class="line">    return o</span><br><span class="line">&#125;</span><br><span class="line">var proson1 &#x3D; createPerson(&#39;张三&#39;)</span><br></pre></td></tr></table></figure>
+<p>4.使用构造函数创建对象</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">function Person(name)&#123;</span><br><span class="line"> this.name &#x3D; name;</span><br><span class="line">&#125;</span><br><span class="line">var person1 &#x3D; new Person(&#39;张三&#39;);</span><br></pre></td></tr></table></figure>
+<h3 id="4-new运算符"><a href="#4-new运算符" class="headerlink" title="4.new运算符"></a>4.new运算符</h3><ol>
+<li>创了一个新对象;</li>
+<li>this指向构造函数;</li>
+<li>构造函数有返回,会替换new出来的对象,如果没有就是new出来的对象</li>
+<li>手动封装一个new运算符<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">function new2(func) &#123;</span><br><span class="line">  var obj &#x3D; &#123;&#125;; &#x2F;&#x2F;创建对象</span><br><span class="line">  console.log(func.prototype)</span><br><span class="line">  let arg &#x3D; Array.prototype.slice.call(arguments,1);</span><br><span class="line">  obj.__proto__ &#x3D; func.prototype</span><br><span class="line">  func.apply(obj,arg);</span><br><span class="line">  return obj</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">var Person &#x3D; function(name) &#123;</span><br><span class="line">  this.name &#x3D; name;</span><br><span class="line">&#125;;</span><br><span class="line">var obj &#x3D; new2(Person,1);</span><br><span class="line">console.log(obj); &#x2F;&#x2F; Person &#123; name: 1 &#125;</span><br></pre></td></tr></table></figure></li>
+</ol>
+
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/vae.github.io/2020/01/03/%E5%8E%9F%E5%9E%8B%E9%93%BE/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-继承的方式" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/vae.github.io/2020/01/03/%E7%BB%A7%E6%89%BF%E7%9A%84%E6%96%B9%E5%BC%8F/">继承的方式</a>
+    </h1>
+  
+
+        
+        <a href="/vae.github.io/2020/01/03/%E7%BB%A7%E6%89%BF%E7%9A%84%E6%96%B9%E5%BC%8F/" class="archive-article-date">
+  	<time datetime="2020-01-03T03:39:46.580Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-01-03</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>JS是一门弱类型动态语言,封装和继承是他的两大特性</p>
+<h3 id="1-1-原型链继承"><a href="#1-1-原型链继承" class="headerlink" title="1.1 原型链继承"></a>1.1 原型链继承</h3><p>将父类的实例作为子类的原型 1.代码实现 </p>
+<p>父类:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 定义一个动物类</span><br><span class="line">function Animal (name) &#123;</span><br><span class="line">  &#x2F;&#x2F; 属性</span><br><span class="line">  this.name &#x3D; name || &#39;Animal&#39;;</span><br><span class="line">  &#x2F;&#x2F; 实例方法</span><br><span class="line">  this.sleep &#x3D; function()&#123;</span><br><span class="line">    console.log(this.name + &#39;正在睡觉！&#39;);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line">&#x2F;&#x2F; 原型方法</span><br><span class="line">Animal.prototype.eat &#x3D; function(food) &#123;</span><br><span class="line">  console.log(this.name + &#39;正在吃：&#39; + food);</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>子类</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">function Cat()&#123; </span><br><span class="line">&#125;</span><br><span class="line">Cat.prototype &#x3D; new Animal();</span><br><span class="line">Cat.prototype.name &#x3D; &#39;cat&#39;;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F;&amp;emsp;Test Code</span><br><span class="line">var cat &#x3D; new Cat();</span><br><span class="line">console.log(cat.name);&#x2F;&#x2F;cat</span><br><span class="line">console.log(cat.eat(&#39;fish&#39;));&#x2F;&#x2F;cat正在吃：fish  undefined</span><br><span class="line">console.log(cat.sleep());&#x2F;&#x2F;cat正在睡觉！ undefined</span><br><span class="line">console.log(cat instanceof Animal); &#x2F;&#x2F;true </span><br><span class="line">console.log(cat instanceof Cat); &#x2F;&#x2F;true</span><br></pre></td></tr></table></figure>
+<p>2.优缺点 简单易于实现,但是要想为子类新增属性和方法，必须要在new Animal()这样的语句之后执行,无法实现多继承</p>
+<h3 id="2-构造继承"><a href="#2-构造继承" class="headerlink" title="2. 构造继承"></a>2. 构造继承</h3><p>实质是利用call来改变Cat中的this指向 1.代码实现 子类:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">function Cat(name)&#123;</span><br><span class="line">  Animal.call(this);</span><br><span class="line">  this.name &#x3D; name || &#39;Tom&#39;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>2.优缺点 可以实现多继承,不能继承原型属性/方法</p>
+<h3 id="3-实例继承"><a href="#3-实例继承" class="headerlink" title="3. 实例继承"></a>3. 实例继承</h3><p>为父类实例添加新特性，作为子类实例返回 1.代码实现 子类</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">function Cat(name)&#123;</span><br><span class="line">  var instance &#x3D; new Animal();</span><br><span class="line">  instance.name &#x3D; name || &#39;Tom&#39;;</span><br><span class="line">  return instance;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="4-拷贝继承"><a href="#4-拷贝继承" class="headerlink" title="4. 拷贝继承"></a>4. 拷贝继承</h3><p>将父类的属性和方法拷贝一份到子类中 1.子类:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">function Cat(name)&#123;</span><br><span class="line">  var animal &#x3D; new Animal();</span><br><span class="line">  for(var p in animal)&#123;</span><br><span class="line">    Cat.prototype[p] &#x3D; animal[p];</span><br><span class="line">  &#125;</span><br><span class="line">  Cat.prototype.name &#x3D; name || &#39;Tom&#39;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>2.优缺点 支持多继承,但是效率低占用内存</p>
+<h3 id="5-组合继承"><a href="#5-组合继承" class="headerlink" title="5 组合继承"></a>5 组合继承</h3><p>通过调用父类构造，继承父类的属性并保留传参的优点，然后通过将父类实例作为子类原型，实现函数复用 1.子类:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">function Cat(name)&#123;</span><br><span class="line">  Animal.call(this);</span><br><span class="line">  this.name &#x3D; name || &#39;Tom&#39;;</span><br><span class="line">&#125;</span><br><span class="line">Cat.prototype &#x3D; new Animal();</span><br><span class="line">Cat.prototype.constructor &#x3D; Cat;</span><br></pre></td></tr></table></figure>
+<h3 id="6-组合寄生集成"><a href="#6-组合寄生集成" class="headerlink" title="6. 组合寄生集成"></a>6. 组合寄生集成</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">function Cat(name)&#123;</span><br><span class="line">  Animal.call(this);</span><br><span class="line">  this.name &#x3D; name || &#39;Tom&#39;;</span><br><span class="line">&#125;</span><br><span class="line">(function()&#123;</span><br><span class="line">  &#x2F;&#x2F; 创建一个没有实例方法的类</span><br><span class="line">  var Super &#x3D; function()&#123;&#125;;</span><br><span class="line">  Super.prototype &#x3D; Animal.prototype;</span><br><span class="line">  &#x2F;&#x2F;将实例作为子类的原型</span><br><span class="line">  Cat.prototype &#x3D; new Super();</span><br><span class="line">&#125;)();</span><br></pre></td></tr></table></figure>
+<h3 id="7-ES6的extends继承"><a href="#7-ES6的extends继承" class="headerlink" title="7. ES6的extends继承"></a>7. ES6的extends继承</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F;父类</span><br><span class="line">class Person &#123;</span><br><span class="line">    &#x2F;&#x2F;constructor是构造方法</span><br><span class="line">    constructor(skin, language) &#123;</span><br><span class="line">        this.skin &#x3D; skin;</span><br><span class="line">        this.language &#x3D; language;</span><br><span class="line">    &#125;</span><br><span class="line">    say() &#123;</span><br><span class="line">        console.log(&#39;我是父类&#39;)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F;子类</span><br><span class="line">class Chinese extends Person &#123;</span><br><span class="line">    constructor(skin, language, positon) &#123;</span><br><span class="line">        &#x2F;&#x2F;console.log(this);&#x2F;&#x2F;报错</span><br><span class="line">        super(skin, language);</span><br><span class="line">        &#x2F;&#x2F;super();相当于父类的构造函数</span><br><span class="line">        &#x2F;&#x2F;console.log(this);调用super后得到了this，不报错，</span><br><span class="line">        &#x2F;&#x2F;this指向子类，相当于调用了父类.prototype.constructor.call(this)</span><br><span class="line">        this.positon &#x3D; positon;</span><br><span class="line">    &#125;</span><br><span class="line">    aboutMe() &#123;</span><br><span class="line">        console.log(&#96;$&#123;this.skin&#125; $&#123;this.language&#125;  $&#123;this.positon&#125;&#96;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F;调用只能通过new的方法得到实例,再调用里面的方法</span><br><span class="line">let obj &#x3D; new Chinese(&#39;红色&#39;, &#39;中文&#39;, &#39;香港&#39;);</span><br><span class="line">obj.aboutMe();</span><br><span class="line">obj.say();</span><br></pre></td></tr></table></figure>
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/vae.github.io/2020/01/03/%E7%BB%A7%E6%89%BF%E7%9A%84%E6%96%B9%E5%BC%8F/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
     <article id="post-call,apply和bind原生实现" class="article article-type-post  article-index" itemscope itemprop="blogPost">
   <div class="article-inner">
     
